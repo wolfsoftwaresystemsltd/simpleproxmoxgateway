@@ -1,0 +1,38 @@
+#!/bin/bash
+# crontab script for setting up our boot up mapping
+# Set a full path to ensure all commands are found
+export PATH=/usr/sbin:/sbin:/usr/bin:/bin
+
+# Log file for debugging
+LOG_FILE="/var/log/gateway-boot.log"
+echo "--- Starting gateway script at $(date) ---" >> $LOG_FILE
+
+# 1. Enable IP forwarding
+/usr/sbin/sysctl -w net.ipv4.ip_forward=1 >> $LOG_FILE 2>&1
+
+# 2. Wait for the WAN interface (eth1) to be ready
+while ! /usr/bin/ip link show eth1 up > /dev/null 2>&1; do
+    sleep 1
+done
+echo "Interface eth1 is up." >> $LOG_FILE
+
+# 3. Flush old NAT rules to prevent duplicates on multiple runs
+/usr/sbin/iptables -t nat -F POSTROUTING >> $LOG_FILE 2>&1
+
+# 4. Apply the correct, specific NAT rule for your network
+#    (Traffic FROM 10.0.10.0/24 going OUT eth1)
+/usr/sbin/iptables -t nat -A POSTROUTING -s '10.0.10.0/24' -o eth1 -j MASQUERADE >> $LOG_FILE 2>&1
+echo "Applied NAT rule for 10.0.10.0/24." >> $LOG_FILE
+
+# 5. Ensure the persistence package is installed
+if ! /usr/bin/dpkg -l | /usr/bin/grep -q "iptables-persistent"; then
+    echo "Installing iptables-persistent..." >> $LOG_FILE
+    export DEBIAN_FRONTEND=noninteractive
+    /usr/bin/apt-get update >> $LOG_FILE 2>&1
+    /usr/bin/apt-get install -y iptables-persistent >> $LOG_FILE 2>&1
+fi
+
+# 6. Save the current rules for persistence
+/usr/sbin/netfilter-persistent save >> $LOG_FILE 2>&1
+echo "Saved rules. Gateway setup complete." >> $LOG_FILE
+echo "---" >> $LOG_FILE
