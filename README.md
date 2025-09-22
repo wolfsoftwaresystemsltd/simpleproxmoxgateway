@@ -16,3 +16,9 @@ crontab -e
 chmod +x the install script
 
 and you're good to go.
+
+Enjoy!
+
+Paul Clevett
+Wolf Software Systems Ltd
+https://wolf.uk.com
