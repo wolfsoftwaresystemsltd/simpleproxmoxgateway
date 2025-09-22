@@ -1,0 +1,26 @@
+#!/bin/bash
+# Installs a simple gateway between eth0 and eth1
+# --- Fail script on any error ---
+set -e
+
+echo ">>> [1/4] Updating package lists..."
+apt-get update
+
+echo ">>> [2/4] Enabling IP forwarding..."
+# Enable kernel forwarding immediately
+sysctl -w net.ipv4.ip_forward=1
+# Make it permanent by adding it to sysctl.conf
+echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+
+echo ">>> [3/4] Applying NAT firewall rule..."
+# CORRECTED: Rule now applies to traffic leaving the eth1 interface
+iptables -t nat -A POSTROUTING -o eth1 -j MASQUERADE
+
+echo ">>> [4/4] Making firewall rule persistent..."
+# Install the persistence package, accepting the prompts automatically
+DEBIAN_FRONTEND=noninteractive apt-get install -y iptables-persistent
+
+# Manually save the rules
+netfilter-persistent save
+
+echo "✅ Gateway configuration complete!"
